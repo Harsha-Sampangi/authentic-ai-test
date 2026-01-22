@@ -1,3 +1,16 @@
-// Run server: uvicorn main:app --reload --host 0.0.0.0 --port 8000
-python3 -m venv venv
-source venv/bin/activate
+fastapi
+pytz
+transformers
+torch
+timm
+Pillow
+numpy
+opencv-python
+torchvision
+facenet-pytorch
+librosa
+soundfile
+yt-dlp
+twilio
+python-multipart
+uvicorn

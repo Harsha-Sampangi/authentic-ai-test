@@ -4,6 +4,8 @@ from pathlib import Path
 import tempfile
 from PIL import Image
 import json
+import subprocess
+import os
 
 class VideoDeepfakeAnalyzer:
     """
@@ -18,6 +20,61 @@ class VideoDeepfakeAnalyzer:
         self.image_detector = image_detector
         print("🎬 Video Analyzer initialized")
     
+    def extract_audio(self, video_path):
+        """
+        Extract audio track from video file
+        
+        Args:
+            video_path: Path to video file
+            
+        Returns:
+            Path to extracted audio file (temp .wav) or None if no audio
+        """
+        try:
+            print(f"   🎙️ Extracting audio from video...")
+            
+            # Create temp file for audio
+            fd, audio_path = tempfile.mkstemp(suffix='.wav')
+            os.close(fd)
+            
+            # Use ffmpeg to extract audio
+            # -y: overwrite output
+            # -i: input
+            # -vn: disable video recording
+            # -acodec pcm_s16le: encoded as 16-bit PCM (wav compatible)
+            # -ar 16000: resample to 16kHz for model compatibility
+            # -ac 1: mono
+            command = [
+                'ffmpeg', 
+                '-y', 
+                '-i', str(video_path), 
+                '-vn', 
+                '-acodec', 'pcm_s16le', 
+                '-ar', '16000', 
+                '-ac', '1', 
+                str(audio_path)
+            ]
+            
+            # Run command silently
+            result = subprocess.run(
+                command, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE
+            )
+            
+            if result.returncode == 0 and os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
+                print(f"   ✅ Audio extracted successfully")
+                return audio_path
+            else:
+                print(f"   ⚠️ No audio track found or extraction failed")
+                if os.path.exists(audio_path):
+                    os.unlink(audio_path)
+                return None
+                
+        except Exception as e:
+            print(f"   ❌ Audio extraction error: {e}")
+            return None
+
     def extract_frames(self, video_path, max_frames=30, method='uniform'):
         """
         Extract frames from video for analysis
@@ -131,17 +188,18 @@ class VideoDeepfakeAnalyzer:
         # Calculate overall statistics
         scores = [r['authenticity_score'] for r in frame_results]
         
-        overall_score = np.mean(scores)
-        min_score = np.min(scores)
-        max_score = np.max(scores)
-        std_score = np.std(scores)
+        # Cast numpy types to python types for JSON serialization
+        overall_score = float(np.mean(scores))
+        min_score = float(np.min(scores))
+        max_score = float(np.max(scores))
+        std_score = float(np.std(scores))
         
         # Count suspicious frames
         suspicious_frames = sum(1 for r in frame_results if r['is_deepfake'])
         suspicious_percentage = (suspicious_frames / len(frame_results)) * 100
         
         # Determine overall verdict
-        is_deepfake = overall_score < 50 or suspicious_percentage > 30
+        is_deepfake = bool(overall_score < 50 or suspicious_percentage > 30)
         
         # Confidence based on consistency
         if std_score < 10:  # Consistent scores
@@ -154,7 +212,7 @@ class VideoDeepfakeAnalyzer:
         # Find most suspicious segments (consecutive suspicious frames)
         suspicious_segments = self._find_suspicious_segments(frame_results)
         
-        # Generate alerts
+        # Generate initial alerts (visual only)
         alerts = self._generate_video_alerts(
             overall_score, 
             suspicious_percentage, 
@@ -180,7 +238,7 @@ class VideoDeepfakeAnalyzer:
             'timeline': self._create_timeline(frame_results)
         }
         
-        print(f"\n   ✅ Video analysis complete!")
+        print(f"\n   ✅ Video visual analysis complete!")
         print(f"   Overall score: {overall_score:.1f}%")
         print(f"   Suspicious frames: {suspicious_frames}/{len(frame_results)} ({suspicious_percentage:.1f}%)")
         print(f"   Verdict: {'LIKELY FAKE' if is_deepfake else 'LIKELY AUTHENTIC'}\n")
@@ -201,7 +259,7 @@ class VideoDeepfakeAnalyzer:
                         'start_time': current_segment[0]['timestamp'],
                         'end_time': current_segment[-1]['timestamp'],
                         'frame_count': len(current_segment),
-                        'avg_score': np.mean([f['authenticity_score'] for f in current_segment])
+                        'avg_score': float(np.mean([f['authenticity_score'] for f in current_segment]))
                     })
                 current_segment = []
         
@@ -211,12 +269,12 @@ class VideoDeepfakeAnalyzer:
                 'start_time': current_segment[0]['timestamp'],
                 'end_time': current_segment[-1]['timestamp'],
                 'frame_count': len(current_segment),
-                'avg_score': np.mean([f['authenticity_score'] for f in current_segment])
+                'avg_score': float(np.mean([f['authenticity_score'] for f in current_segment]))
             })
         
         return segments
     
-    def _generate_video_alerts(self, overall_score, suspicious_pct, segment_count, score_std):
+    def _generate_video_alerts(self, overall_score, suspicious_pct, segment_count, score_std, audio_score=None):
         """Generate alerts specific to video analysis"""
         alerts = []
         
@@ -225,7 +283,7 @@ class VideoDeepfakeAnalyzer:
                 "severity": "High",
                 "title": "Severe Video Manipulation",
                 "icon": "🎬",
-                "description": f"Overall authenticity score of {overall_score:.1f}% indicates heavy manipulation"
+                "description": f"Visual authenticity score of {overall_score:.1f}% indicates heavy manipulation"
             })
         elif overall_score < 50:
             alerts.append({
@@ -265,6 +323,33 @@ class VideoDeepfakeAnalyzer:
                 "icon": "📉",
                 "description": "Large variations between frames suggest selective editing"
             })
+            
+        # Mixed Media Alerts
+        if audio_score is not None:
+            visual_is_fake = overall_score < 50
+            audio_is_fake = audio_score < 50
+            
+            if visual_is_fake and not audio_is_fake:
+                alerts.append({
+                    "severity": "High",
+                    "title": "Mixed Media: Fake Video / Real Audio",
+                    "icon": "🎭",
+                    "description": "Visuals appear manipulated but audio seems authentic. Likely face-swap or re-enactment."
+                })
+            elif not visual_is_fake and audio_is_fake:
+                 alerts.append({
+                    "severity": "High",
+                    "title": "Mixed Media: Real Video / Fake Audio",
+                    "icon": "🗣️",
+                    "description": "Visuals appear authentic but audio is synthetic. Potential voice cloning or dubbing."
+                })
+            elif visual_is_fake and audio_is_fake:
+                alerts.append({
+                    "severity": "High",
+                    "title": "Full Deepfake Detected",
+                    "icon": "🤖",
+                    "description": "Both auditory and visual channels show signs of manipulation."
+                })
         
         return alerts
     

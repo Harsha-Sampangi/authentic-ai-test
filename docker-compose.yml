@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    container_name: authenti-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/heatmaps:/app/heatmaps
+    environment:
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:80
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: authenti-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

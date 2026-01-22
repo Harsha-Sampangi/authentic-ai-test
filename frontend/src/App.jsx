@@ -1,23 +1,96 @@
 import { useState, useEffect } from 'react'
 
+const API_URL = `http://${window.location.hostname}:8000`; // Dynamic API URL for LAN access
+
 function App() {
+  /* State */
   const [currentScreen, setCurrentScreen] = useState('landing')
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [result, setResult] = useState(null)
   const [dragActive, setDragActive] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+
+  // Handle URL Analysis
+  const handleUrlAnalyze = async () => {
+    if (!urlInput) return;
+
+    setCurrentScreen('analyzing')
+    setResult(null);
+    setPreviewUrl(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/analyze-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: 'Analysis failed' }));
+        throw new Error(err.detail || 'Analysis failed');
+      }
+
+      const data = await response.json();
+
+      // Determine type from response
+      const isVideo = data.type === 'video';
+      const isAudio = data.type === 'audio';
+
+      if (data.thumbnail_url) {
+        setPreviewUrl(`${API_URL}${data.thumbnail_url}`);
+      }
+
+      setResult({
+        score: data.authenticity_score,
+        status: data.is_deepfake ? 'HIGHLY SUSPICIOUS' : 'LIKELY AUTHENTIC',
+        filename: data.title || urlInput,
+        timestamp: new Date().toISOString(),
+        alerts: data.alerts || [],
+        report: data.report,
+        type: data.type,
+        // Video-specific data
+        frameCount: data.frame_count,
+        suspiciousFrames: data.suspicious_frames,
+        suspiciousPercentage: data.suspicious_percentage,
+        timeline: data.timeline,
+        suspiciousSegments: data.suspicious_segments,
+        scoreRange: data.score_range,
+        audioAnalysis: data.audio_analysis,
+        // Forensic breakdown
+        forensicBreakdown: data.forensic_breakdown ? {
+          sections: data.forensic_breakdown.sections || [],
+          confidenceBreakdown: {
+            visual_consistency: data.forensic_breakdown.confidence_breakdown?.visual_consistency || 0,
+            temporal_analysis: data.forensic_breakdown.confidence_breakdown?.temporal_analysis || null,
+            noise_compression: data.forensic_breakdown.confidence_breakdown?.noise_compression || 0,
+            metadata_integrity: data.forensic_breakdown.confidence_breakdown?.metadata_integrity || 0
+          },
+          explanation: data.forensic_breakdown.explanation || ''
+        } : null,
+      })
+
+      setCurrentScreen('results')
+
+    } catch (error) {
+      console.error('URL Analysis Error:', error);
+      alert(error.message);
+      setCurrentScreen('landing')
+    }
+  }
 
   // Handle file selection with video support
   const handleFileSelect = (file) => {
     if (file) {
       const isImage = file.type.startsWith('image/')
       const isVideo = file.type.startsWith('video/')
-      
-      if (isImage || isVideo) {
+      const isAudio = file.type.startsWith('audio/')
+
+      if (isImage || isVideo || isAudio) {
         setSelectedFile(file)
         setPreviewUrl(URL.createObjectURL(file))
       } else {
-        alert('Please upload an image or video file')
+        alert('Please upload an image, video, or audio file')
       }
     }
   }
@@ -45,71 +118,62 @@ function App() {
   // Analyze image or video
   const handleAnalyze = async () => {
     setCurrentScreen('analyzing')
-    
+
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
-      
-      // Determine if image or video
+
+      // Determine if image, video or audio
       const isVideo = selectedFile.type.startsWith('video/')
-      const endpoint = isVideo ? '/api/analyze-video' : '/api/analyze'
-      
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
+      const isAudio = selectedFile.type.startsWith('audio/')
+
+      let endpoint = '/api/analyze'
+      if (isVideo) endpoint = '/api/analyze-video'
+      if (isAudio) endpoint = '/api/analyze-audio'
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         body: formData
       })
-      
+
       if (!response.ok) {
         throw new Error('Analysis failed')
       }
-      
+
       const data = await response.json()
-      
+
       console.log('Backend response:', data)
-      
-    setResult({
-      score: data.authenticity_score,
-      status: data.is_deepfake ? 'HIGHLY SUSPICIOUS' : 'LIKELY AUTHENTIC',
-      filename: selectedFile.name,
-      timestamp: new Date().toISOString(),
-      alerts: data.alerts || [],
-      report: data.report,
-      type: isVideo ? 'video' : 'image',
-      // Video-specific data
-      frameCount: data.frame_count,
-      suspiciousFrames: data.suspicious_frames,
-      suspiciousPercentage: data.suspicious_percentage,
-      timeline: data.timeline,
-      suspiciousSegments: data.suspicious_segments,
-      scoreRange: data.score_range
-    })
-    setResult({
-  score: data.authenticity_score,
-  status: data.is_deepfake ? 'HIGHLY SUSPICIOUS' : 'LIKELY AUTHENTIC',
-  filename: selectedFile.name,
-  timestamp: new Date().toISOString(),
-  alerts: data.alerts || [],
-  report: data.report,
-  type: isVideo ? 'video' : 'image',
-  frameCount: data.frame_count,
-  suspiciousFrames: data.suspicious_frames,
-  suspiciousPercentage: data.suspicious_percentage,
-  timeline: data.timeline,
-  suspiciousSegments: data.suspicious_segments,
-  scoreRange: data.score_range,
-  // NEW: Add these two lines
-    forensicBreakdown: data.forensic_breakdown ? {
-    sections: data.forensic_breakdown.sections || [],
-    confidenceBreakdown: {
-      visual_consistency: data.forensic_breakdown.confidence_breakdown?.visual_consistency || 0,
-      temporal_analysis: data.forensic_breakdown.confidence_breakdown?.temporal_analysis || null,
-      noise_compression: data.forensic_breakdown.confidence_breakdown?.noise_compression || 0,
-      metadata_integrity: data.forensic_breakdown.confidence_breakdown?.metadata_integrity || 0
-    },
-    explanation: data.forensic_breakdown.explanation || ''
-  } : null,
-})
-      
+
+      setResult({
+        score: data.authenticity_score,
+        status: data.is_deepfake ? 'HIGHLY SUSPICIOUS' : 'LIKELY AUTHENTIC',
+        filename: selectedFile.name,
+        timestamp: new Date().toISOString(),
+
+        alerts: data.alerts || [],
+        report: data.report,
+        type: isVideo ? 'video' : isAudio ? 'audio' : 'image',
+        // Video-specific data
+        frameCount: data.frame_count,
+        suspiciousFrames: data.suspicious_frames,
+        suspiciousPercentage: data.suspicious_percentage,
+        timeline: data.timeline,
+        suspiciousSegments: data.suspicious_segments,
+        scoreRange: data.score_range,
+        audioAnalysis: data.audio_analysis,
+        // Forensic breakdown
+        forensicBreakdown: data.forensic_breakdown ? {
+          sections: data.forensic_breakdown.sections || [],
+          confidenceBreakdown: {
+            visual_consistency: data.forensic_breakdown.confidence_breakdown?.visual_consistency || 0,
+            temporal_analysis: data.forensic_breakdown.confidence_breakdown?.temporal_analysis || null,
+            noise_compression: data.forensic_breakdown.confidence_breakdown?.noise_compression || 0,
+            metadata_integrity: data.forensic_breakdown.confidence_breakdown?.metadata_integrity || 0
+          },
+          explanation: data.forensic_breakdown.explanation || ''
+        } : null,
+      })
+
       setCurrentScreen('results')
     } catch (error) {
       console.error('Analysis failed:', error)
@@ -138,19 +202,19 @@ function App() {
             <span className="text-xl font-bold">Authenti.AI</span>
           </div>
           <div className="flex items-center gap-6">
-            <button 
+            <button
               onClick={() => setCurrentScreen('landing')}
               className="text-sm text-gray-400 hover:text-white"
             >
               Dashboard
             </button>
-            <button 
+            <button
               onClick={() => setCurrentScreen('landing')}
               className="text-sm text-gray-400 hover:text-white"
             >
               Analysis
             </button>
-            <button 
+            <button
               onClick={() => setCurrentScreen('history')}
               className="text-sm text-gray-400 hover:text-white"
             >
@@ -170,7 +234,7 @@ function App() {
       {/* Landing Screen */}
       {currentScreen === 'landing' && (
         <div className="max-w-5xl mx-auto px-6 py-20">
-          <div 
+          <div
             className="relative rounded-3xl overflow-hidden"
             style={{
               background: 'linear-gradient(135deg, #1a4d5c 0%, #2d7a8a 50%, #4fa8b8 100%)',
@@ -178,7 +242,7 @@ function App() {
             }}
           >
             <div className="absolute inset-0 bg-black/20" />
-            
+
             <div className="relative z-10 flex flex-col items-center justify-center py-20 px-8 text-center">
               <h1 className="text-5xl font-bold mb-4 leading-tight">
                 Verify Digital Reality with AI Truth Analysis
@@ -193,13 +257,12 @@ function App() {
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
-                className={`relative w-full max-w-md mb-8 transition-all ${
-                  dragActive ? 'scale-105' : ''
-                }`}
+                className={`relative w-full max-w-md mb-8 transition-all ${dragActive ? 'scale-105' : ''
+                  }`}
               >
                 <input
                   type="file"
-                  accept="image/*,video/*"
+                  accept="image/*,video/*,audio/*"
                   onChange={(e) => handleFileSelect(e.target.files[0])}
                   className="hidden"
                   id="file-input"
@@ -208,23 +271,57 @@ function App() {
                   htmlFor="file-input"
                   className="block cursor-pointer bg-cyan-400 hover:bg-cyan-300 text-gray-900 font-semibold py-5 px-8 rounded-xl transition-all shadow-lg"
                 >
-                  {selectedFile ? selectedFile.name : 'Drag & Drop Image or Video'}
+                  {selectedFile ? selectedFile.name : 'Drag & Drop Media File'}
                 </label>
+              </div>
+
+              {/* URL Input Section */}
+              <div className="w-full max-w-md mb-8">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="h-px bg-white/20 flex-1"></div>
+                  <span className="text-white/50 text-sm font-semibold">OR PASTE URL</span>
+                  <div className="h-px bg-white/20 flex-1"></div>
+                </div>
+                <div className="flex gap-2 bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/10">
+                  <input
+                    type="text"
+                    placeholder="https://instagram.com/reel/..."
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="flex-1 bg-transparent border-none outline-none text-white px-3 placeholder-white/30"
+                  />
+                  <button
+                    onClick={handleUrlAnalyze}
+                    disabled={!urlInput}
+                    className="bg-purple-500 hover:bg-purple-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-semibold transition-all"
+                  >
+                    Analyze
+                  </button>
+                </div>
               </div>
 
               {/* Preview */}
               {selectedFile && (
                 <div className="mb-8">
                   {selectedFile.type.startsWith('video/') ? (
-                    <video 
-                      src={previewUrl} 
-                      controls 
+                    <video
+                      src={previewUrl}
+                      controls
                       className="max-h-64 mx-auto rounded-lg"
                     />
+                  ) : selectedFile.type.startsWith('audio/') ? (
+                    <div className="bg-gray-800 p-8 rounded-lg">
+                      <div className="text-4xl text-center mb-4">🎙️</div>
+                      <audio
+                        src={previewUrl}
+                        controls
+                        className="w-full"
+                      />
+                    </div>
                   ) : (
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview" 
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
                       className="max-h-64 mx-auto rounded-lg"
                     />
                   )}
@@ -241,7 +338,7 @@ function App() {
               )}
 
               <p className="text-sm text-white/70">
-                Supported formats: JPG, PNG, MP4, MOV, AVI
+                Supported formats: JPG, PNG, MP4, MP3, WAV
               </p>
             </div>
           </div>
@@ -301,7 +398,7 @@ function AnalyzingScreen({ isVideo }) {
 
   useEffect(() => {
     const timers = []
-    
+
     // Artifact Inspection
     timers.push(setTimeout(() => {
       const interval = setInterval(() => {
@@ -400,7 +497,7 @@ function ProgressBar({ label, progress }) {
         <span className="text-gray-400">{Math.round(progress)}%</span>
       </div>
       <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-        <div 
+        <div
           className="h-full bg-gradient-to-r from-cyan-400 to-teal-400 transition-all duration-300"
           style={{ width: `${Math.min(progress, 100)}%` }}
         />
@@ -473,7 +570,7 @@ function ResultsScreen({ result, previewUrl, onReset }) {
 
       <h2 className="text-2xl font-bold mb-6">Analysis Results</h2>
 
-      {/* Main Results Grid */}
+/* Main Results Grid */
       <div className="grid md:grid-cols-[2fr_1fr] gap-6 mb-6">
         {/* Score Card */}
         <div className={`bg-gradient-to-br ${getBgGradient(result.score)} rounded-2xl p-8 border`}>
@@ -486,12 +583,37 @@ function ResultsScreen({ result, previewUrl, onReset }) {
                 {result.status}
               </div>
               <div className="text-sm text-gray-400 mt-1">Authenticity Score</div>
-              
+
+              {/* Mixed Media Audio Score */}
+              {result.audioAnalysis && result.audioAnalysis.has_audio && (
+                <div className="mt-6 pt-6 border-t border-white/10">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <div className="text-sm text-gray-400 mb-1">Visual Score</div>
+                      <div className={`text-2xl font-bold ${getScoreColor(result.score)}`}>
+                        {Math.round(result.score)}%
+                      </div>
+                    </div>
+                    <div className="h-8 w-px bg-white/20"></div>
+                    <div>
+                      <div className="text-sm text-gray-400 mb-1">Audio Score</div>
+                      <div className={`text-2xl font-bold ${getScoreColor(result.audioAnalysis.authenticity_score)}`}>
+                        {Math.round(result.audioAnalysis.authenticity_score)}%
+                      </div>
+                    </div>
+                  </div>
+                  {Math.abs(result.score - result.audioAnalysis.authenticity_score) > 20 && (
+                    <div className="mt-3 text-xs text-yellow-300 bg-yellow-900/30 px-3 py-1.5 rounded-lg border border-yellow-500/30 inline-block">
+                      ⚠️ Mismatch Detected: Visuals and Audio have different authenticity levels
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Video-specific stats */}
               {result.type === 'video' && result.scoreRange && (
                 <div className="mt-4 text-xs text-gray-400 space-y-1">
-                  <div>Range: {result.scoreRange.min}% - {result.scoreRange.max}%</div>
-                  <div>Variation: ±{result.scoreRange.std}%</div>
+                  {/* Stats moved to tooltip or simplified */}
                 </div>
               )}
             </div>
@@ -504,7 +626,7 @@ function ResultsScreen({ result, previewUrl, onReset }) {
             )}
           </div>
           <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
-            <div 
+            <div
               className={`h-full ${getScoreBg(result.score)}`}
               style={{ width: `${result.score}%` }}
             />
@@ -520,15 +642,14 @@ function ResultsScreen({ result, previewUrl, onReset }) {
                 <div key={idx} className="flex items-center gap-3 bg-gray-800 p-3 rounded-lg">
                   <span className="text-2xl">{alert.icon}</span>
                   <div className="flex-1">
-                    <div className={`text-xs font-semibold mb-1 ${
-                      alert.severity === 'High' ? 'text-red-400' : 
+                    <div className={`text-xs font-semibold mb-1 ${alert.severity === 'High' ? 'text-red-400' :
                       alert.severity === 'Medium' ? 'text-yellow-400' : 'text-blue-400'
-                    }`}>
+                      }`}>
                       {alert.severity}
                     </div>
                     <div className="text-sm">{alert.title}</div>
                   </div>
-                  <button className="text-gray-400 hover:text-white">ℹ️</button>
+                  <button className="text-gray-400 hover:text-white" title={alert.description}>ℹ️</button>
                 </div>
               ))}
             </div>
@@ -542,33 +663,32 @@ function ResultsScreen({ result, previewUrl, onReset }) {
       {result.type === 'video' && result.timeline && (
         <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 mb-6">
           <h3 className="text-lg font-semibold mb-4">Frame-by-Frame Timeline</h3>
-          
+
           <div className="mb-4">
             <p className="text-sm text-gray-400">
               Analyzed {result.frameCount} frames • {result.suspiciousFrames} suspicious ({result.suspiciousPercentage}%)
             </p>
           </div>
-          
+
           {/* Timeline visualization */}
           <div className="flex gap-1 h-20 items-end bg-gray-900 rounded-lg p-2">
             {result.timeline.map((point, idx) => (
               <div
                 key={idx}
-                className={`flex-1 rounded-t transition-all cursor-pointer hover:opacity-80 ${
-                  point.suspicious ? 'bg-red-500' : 'bg-green-500'
-                }`}
+                className={`flex-1 rounded-t transition-all cursor-pointer hover:opacity-80 ${point.suspicious ? 'bg-red-500' : 'bg-green-500'
+                  }`}
                 style={{ height: `${point.score}%` }}
                 title={`${point.timestamp.toFixed(1)}s: ${point.score.toFixed(1)}% ${point.suspicious ? '(Suspicious)' : '(Authentic)'}`}
               />
             ))}
           </div>
-          
+
           <div className="flex justify-between text-xs text-gray-500 mt-2">
             <span>0:00</span>
             <span>Timeline</span>
             <span>{result.timeline[result.timeline.length - 1]?.timestamp.toFixed(1)}s</span>
           </div>
-          
+
           {/* Suspicious segments */}
           {result.suspiciousSegments && result.suspiciousSegments.length > 0 && (
             <div className="mt-6">
@@ -615,16 +735,14 @@ function ResultsScreen({ result, previewUrl, onReset }) {
       <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 mb-6">
         <h3 className="text-lg font-semibold mb-4">Credibility Report</h3>
         <p className="text-sm text-gray-300 leading-relaxed mb-4">{result.report}</p>
-        <div className={`${
-          result.score < 50 ? 'bg-red-900/20 border-red-500/30' : 'bg-green-900/20 border-green-500/30'
-        } border rounded-lg p-4`}>
-          <p className={`text-sm font-semibold mb-2 ${
-            result.score < 50 ? 'text-red-300' : 'text-green-300'
-          }`}>
+        <div className={`${result.score < 50 ? 'bg-red-900/20 border-red-500/30' : 'bg-green-900/20 border-green-500/30'
+          } border rounded-lg p-4`}>
+          <p className={`text-sm font-semibold mb-2 ${result.score < 50 ? 'text-red-300' : 'text-green-300'
+            }`}>
             {result.score < 50 ? 'Advisory Notes: Conduct further investigation if necessary.' : 'Content appears authentic with no critical issues.'}
           </p>
           <p className="text-xs text-gray-400">
-            {result.score < 50 
+            {result.score < 50
               ? 'Its credibility is compromised, and it should not be used as a reliable source without verification.'
               : 'While the content appears authentic, always verify from multiple sources for critical decisions.'
             }
@@ -632,121 +750,120 @@ function ResultsScreen({ result, previewUrl, onReset }) {
         </div>
       </div>
       {/* Explainable Forensic Breakdown */}
-{result.forensicBreakdown && (
-  <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 mb-6">
-    <h3 className="text-lg font-semibold mb-6">Explainable Forensic Breakdown</h3>
-    
-    {/* Accordion Sections */}
-    <div className="space-y-3 mb-6">
-      {result.forensicBreakdown.sections.map((section, idx) => (
-        <ForensicSection key={idx} section={section} />
-      ))}
-    </div>
-    
-    {/* Confidence Breakdown */}
-    <div className="mb-6">
-      <h4 className="text-sm font-semibold mb-4">Decision Confidence Breakdown</h4>
-      <div className="space-y-3">
-        <ConfidenceBar 
-          label="Visual Consistency" 
-          value={result.forensicBreakdown.confidenceBreakdown.visual_consistency} 
-        />
-        {result.forensicBreakdown.confidenceBreakdown.temporal_analysis && (
-          <ConfidenceBar 
-            label="Temporal Analysis" 
-            value={result.forensicBreakdown.confidenceBreakdown.temporal_analysis} 
-          />
-        )}
-        <ConfidenceBar 
-          label="Noise & Compression" 
-          value={result.forensicBreakdown.confidenceBreakdown.noise_compression} 
-        />
-        <ConfidenceBar 
-          label="Metadata Integrity" 
-          value={result.forensicBreakdown.confidenceBreakdown.metadata_integrity} 
-        />
-      </div>
-    </div>
-    
-    {/* AI Explanation */}
-    <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-      <p className="text-xs font-semibold text-blue-300 mb-2">🤖 AI Explanation</p>
-      <p className="text-sm text-gray-300 leading-relaxed">
-        {result.forensicBreakdown.explanation}
-      </p>
-    </div>
-  </div>
-)}
+      {result.forensicBreakdown && (
+        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 mb-6">
+          <h3 className="text-lg font-semibold mb-6">Explainable Forensic Breakdown</h3>
 
-{/* Evidence Integrity Record */}
-{result.evidenceIntegrity && (
-  <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 mb-6">
-    <h3 className="text-lg font-semibold mb-6">Evidence Integrity Record</h3>
-    
-    <div className="space-y-4">
-      {/* File Hash */}
-      <div>
-        <p className="text-xs text-gray-400 mb-1">File Hash (SHA-256)</p>
-        <p className="text-sm font-mono text-gray-300 break-all">
-          {result.evidenceIntegrity.fileHash}
-        </p>
-      </div>
-      
-      {/* Timestamps */}
-      <div>
-        <p className="text-xs text-gray-400 mb-1">Upload Timestamp</p>
-        <p className="text-sm text-gray-300">{result.evidenceIntegrity.uploadTime.ist}</p>
-        <p className="text-xs text-gray-500">{result.evidenceIntegrity.uploadTime.utc}</p>
-      </div>
-      
-      {/* Analysis Engine */}
-      <div>
-        <p className="text-xs text-gray-400 mb-1">Analysis Engine</p>
-        <p className="text-sm text-gray-300">{result.evidenceIntegrity.analysisEngine}</p>
-      </div>
-      
-      {/* Integrity Status */}
-      <div>
-        <p className="text-xs text-gray-400 mb-1">File Integrity Status</p>
-        <p className="text-sm text-green-400 flex items-center gap-2">
-          <span>✔</span> {result.evidenceIntegrity.integrityStatus}
-        </p>
-      </div>
-      
-      {/* Re-analysis History */}
-      <div>
-        <p className="text-xs text-gray-400 mb-1">Re-analysis History</p>
-        <p className="text-sm text-gray-300">
-          {result.evidenceIntegrity.reanalysisCount} re-analysis attempts
-        </p>
-      </div>
-      
-      {/* Trust Level */}
-      <div>
-        <p className="text-xs text-gray-400 mb-1">Evidence Trust Level</p>
-        <span className={`inline-block px-3 py-1 rounded text-sm font-semibold ${
-          result.evidenceIntegrity.trustLevel === 'HIGH' ? 'bg-green-900/30 text-green-400' :
-          result.evidenceIntegrity.trustLevel === 'MEDIUM' ? 'bg-yellow-900/30 text-yellow-400' :
-          'bg-red-900/30 text-red-400'
-        }`}>
-          {result.evidenceIntegrity.trustLevel}
-        </span>
-      </div>
-      
-      {/* Audit Log */}
-      <details className="cursor-pointer">
-        <summary className="text-sm text-gray-400 hover:text-white">▼ View Audit Log</summary>
-        <div className="mt-3 space-y-2 pl-4 border-l-2 border-gray-700">
-          {result.evidenceIntegrity.auditLog.map((log, idx) => (
-            <div key={idx} className="text-xs text-gray-400">
-              • {log.event} — {log.time}
+          {/* Accordion Sections */}
+          <div className="space-y-3 mb-6">
+            {result.forensicBreakdown.sections.map((section, idx) => (
+              <ForensicSection key={idx} section={section} />
+            ))}
+          </div>
+
+          {/* Confidence Breakdown */}
+          <div className="mb-6">
+            <h4 className="text-sm font-semibold mb-4">Decision Confidence Breakdown</h4>
+            <div className="space-y-3">
+              <ConfidenceBar
+                label="Visual Consistency"
+                value={result.forensicBreakdown.confidenceBreakdown.visual_consistency}
+              />
+              {result.forensicBreakdown.confidenceBreakdown.temporal_analysis && (
+                <ConfidenceBar
+                  label="Temporal Analysis"
+                  value={result.forensicBreakdown.confidenceBreakdown.temporal_analysis}
+                />
+              )}
+              <ConfidenceBar
+                label="Noise & Compression"
+                value={result.forensicBreakdown.confidenceBreakdown.noise_compression}
+              />
+              <ConfidenceBar
+                label="Metadata Integrity"
+                value={result.forensicBreakdown.confidenceBreakdown.metadata_integrity}
+              />
             </div>
-          ))}
+          </div>
+
+          {/* AI Explanation */}
+          <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+            <p className="text-xs font-semibold text-blue-300 mb-2">🤖 AI Explanation</p>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              {result.forensicBreakdown.explanation}
+            </p>
+          </div>
         </div>
-      </details>
-    </div>
-  </div>
-)}
+      )}
+
+      {/* Evidence Integrity Record */}
+      {result.evidenceIntegrity && (
+        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 mb-6">
+          <h3 className="text-lg font-semibold mb-6">Evidence Integrity Record</h3>
+
+          <div className="space-y-4">
+            {/* File Hash */}
+            <div>
+              <p className="text-xs text-gray-400 mb-1">File Hash (SHA-256)</p>
+              <p className="text-sm font-mono text-gray-300 break-all">
+                {result.evidenceIntegrity.fileHash}
+              </p>
+            </div>
+
+            {/* Timestamps */}
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Upload Timestamp</p>
+              <p className="text-sm text-gray-300">{result.evidenceIntegrity.uploadTime.ist}</p>
+              <p className="text-xs text-gray-500">{result.evidenceIntegrity.uploadTime.utc}</p>
+            </div>
+
+            {/* Analysis Engine */}
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Analysis Engine</p>
+              <p className="text-sm text-gray-300">{result.evidenceIntegrity.analysisEngine}</p>
+            </div>
+
+            {/* Integrity Status */}
+            <div>
+              <p className="text-xs text-gray-400 mb-1">File Integrity Status</p>
+              <p className="text-sm text-green-400 flex items-center gap-2">
+                <span>✔</span> {result.evidenceIntegrity.integrityStatus}
+              </p>
+            </div>
+
+            {/* Re-analysis History */}
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Re-analysis History</p>
+              <p className="text-sm text-gray-300">
+                {result.evidenceIntegrity.reanalysisCount} re-analysis attempts
+              </p>
+            </div>
+
+            {/* Trust Level */}
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Evidence Trust Level</p>
+              <span className={`inline-block px-3 py-1 rounded text-sm font-semibold ${result.evidenceIntegrity.trustLevel === 'HIGH' ? 'bg-green-900/30 text-green-400' :
+                result.evidenceIntegrity.trustLevel === 'MEDIUM' ? 'bg-yellow-900/30 text-yellow-400' :
+                  'bg-red-900/30 text-red-400'
+                }`}>
+                {result.evidenceIntegrity.trustLevel}
+              </span>
+            </div>
+
+            {/* Audit Log */}
+            <details className="cursor-pointer">
+              <summary className="text-sm text-gray-400 hover:text-white">▼ View Audit Log</summary>
+              <div className="mt-3 space-y-2 pl-4 border-l-2 border-gray-700">
+                {result.evidenceIntegrity.auditLog.map((log, idx) => (
+                  <div key={idx} className="text-xs text-gray-400">
+                    • {log.event} — {log.time}
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        </div>
+      )}
 
       {/* Techniques Used */}
       <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
@@ -796,7 +913,7 @@ function HistoryScreen({ onViewReport }) {
         {/* Left: History List */}
         <div>
           <h1 className="text-3xl font-bold mb-8">History</h1>
-          
+
           {/* Search Bar */}
           <div className="relative mb-6">
             <input
@@ -814,7 +931,7 @@ function HistoryScreen({ onViewReport }) {
             <button className="bg-gray-700 px-4 py-2 rounded-lg text-sm">All ▼</button>
           </div>
 
-                   {/* Records */}
+          {/* Records */}
           <h2 className="text-xl font-semibold mb-4">Analysis Records</h2>
           <div className="space-y-4">
             {mockHistory.map(item => (
@@ -826,7 +943,7 @@ function HistoryScreen({ onViewReport }) {
                   <h3 className="font-semibold">{item.name}</h3>
                   <p className="text-sm text-gray-400">{item.type} • {item.date}</p>
                 </div>
-                <button 
+                <button
                   onClick={onViewReport}
                   className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm flex items-center gap-2"
                 >
@@ -840,7 +957,7 @@ function HistoryScreen({ onViewReport }) {
         {/* Right: Quick Analytics */}
         <div>
           <h2 className="text-xl font-semibold mb-6">Quick Analytics</h2>
-          
+
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 mb-4">
             <h3 className="text-sm text-gray-400 mb-2">Total Scans</h3>
             <div className="text-4xl font-bold">120</div>
@@ -855,8 +972,8 @@ function HistoryScreen({ onViewReport }) {
             <h3 className="text-sm text-gray-400 mb-4">Last 30 Days</h3>
             <div className="h-32 flex items-end gap-1">
               {[40, 65, 52, 80, 45, 70, 90, 55, 75, 85, 60, 95, 70].map((h, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="flex-1 bg-teal-500 rounded-t"
                   style={{ height: `${h}%` }}
                 />
@@ -878,7 +995,7 @@ function HistoryScreen({ onViewReport }) {
 // Forensic Section Accordion Component
 function ForensicSection({ section }) {
   const [isOpen, setIsOpen] = useState(true)
-  
+
   return (
     <div className="border border-gray-700 rounded-lg overflow-hidden">
       <button
@@ -888,18 +1005,17 @@ function ForensicSection({ section }) {
         <span className="text-sm font-semibold">{section.title}</span>
         <span className="text-gray-400">{isOpen ? '▼' : '▶'}</span>
       </button>
-      
+
       {isOpen && (
         <div className="px-4 py-3 space-y-2">
           {section.findings.map((finding, idx) => (
             <div key={idx} className="flex items-start gap-2 text-sm">
-              <span className={`mt-0.5 ${
-                finding.status === 'pass' ? 'text-green-400' :
+              <span className={`mt-0.5 ${finding.status === 'pass' ? 'text-green-400' :
                 finding.status === 'warning' ? 'text-yellow-400' :
-                'text-red-400'
-              }`}>
-                {finding.status === 'pass' ? '✔' : 
-                 finding.status === 'warning' ? '⚠' : '✖'}
+                  'text-red-400'
+                }`}>
+                {finding.status === 'pass' ? '✔' :
+                  finding.status === 'warning' ? '⚠' : '✖'}
               </span>
               <span className="text-gray-300">{finding.text}</span>
             </div>
@@ -919,12 +1035,11 @@ function ConfidenceBar({ label, value }) {
         <span className="text-gray-300 font-semibold">{Math.round(value)}%</span>
       </div>
       <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-        <div 
-          className={`h-full transition-all ${
-            value >= 80 ? 'bg-green-500' :
+        <div
+          className={`h-full transition-all ${value >= 80 ? 'bg-green-500' :
             value >= 60 ? 'bg-yellow-500' :
-            'bg-red-500'
-          }`}
+              'bg-red-500'
+            }`}
           style={{ width: `${value}%` }}
         />
       </div>

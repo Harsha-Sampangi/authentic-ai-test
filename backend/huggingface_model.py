@@ -19,8 +19,8 @@ class HuggingFaceDeepfakeDetector:
         print(f"   Using device: {self.device}")
         
         try:
-            # Use a model specifically trained for deepfake detection
-            model_name = "dima806/deepfake_vs_real_image_detection"
+            # Use a specialized model for AI-generated image detection
+            model_name = "umm-maybe/AI-image-detector"
             
             print(f"   Loading model: {model_name}")
             self.processor = AutoImageProcessor.from_pretrained(model_name)
@@ -28,8 +28,8 @@ class HuggingFaceDeepfakeDetector:
             self.model = self.model.to(self.device)
             self.model.eval()
             
-            print("   ✅ Real deepfake model loaded!")
-            print("   ✅ This model is trained on actual deepfakes")
+            print("   ✅ General AI image detector loaded!")
+            print("   ✅ This model distinguishes between AI-generated and Human-created content")
             
         except Exception as e:
             print(f"   ⚠️ Could not load Hugging Face model: {e}")
@@ -56,7 +56,7 @@ class HuggingFaceDeepfakeDetector:
                     logits = outputs.logits
                     probs = torch.nn.functional.softmax(logits, dim=-1)
                 
-                # Model output: [fake_prob, real_prob]
+                # Model output: [fake_prob, real_prob] (id2label: {0: 'artificial', 1: 'human'})
                 fake_prob = probs[0][0].item()
                 real_prob = probs[0][1].item()
                 

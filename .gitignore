@@ -16,3 +16,6 @@ build/
 *.log
 .DS_Store
 *.pth
+# Backend Media
+backend/uploads/
+backend/heatmaps/
