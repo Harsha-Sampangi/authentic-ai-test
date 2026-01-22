@@ -98,4 +98,4 @@ The backend exposes a RESTful API. Full Swagger documentation is available at `/
 
 ## License
 
-[License Name] - See LICENSE file for details.
+[Copyright (c) 2026 Harsha Sampangi] - See LICENSE file for details.
