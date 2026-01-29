@@ -1,6 +1,6 @@
-# Authenti.AI
+# Authentic.AI
 
-Authenti.AI is a comprehensive deepfake detection system designed to ensure media integrity. It provides advanced forensic analysis for images, videos, and audio, along with evidence integrity tracking using blockchain-ready hashing.
+Authentic.AI is a comprehensive deepfake detection system designed to ensure media integrity. It provides advanced forensic analysis for images, videos, and audio, along with evidence integrity tracking using blockchain-ready hashing.
 
 ## Features
 
