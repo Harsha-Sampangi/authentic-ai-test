@@ -1,0 +1,334 @@
+/* Authenti.AI Content Script Styles */
+
+#authentiai-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.authentiai-modal {
+  background: linear-gradient(135deg, #0a0e17 0%, #1a2332 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 400px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.authentiai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.authentiai-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.authentiai-icon {
+  font-size: 20px;
+}
+
+.authentiai-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.authentiai-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.authentiai-content {
+  padding: 20px;
+  color: #fff;
+  overflow-y: auto;
+  max-height: calc(90vh - 60px);
+}
+
+/* Loading State */
+.authentiai-loading {
+  text-align: center;
+}
+
+.authentiai-preview {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 8px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.authentiai-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+.authentiai-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: #9ca3af;
+}
+
+.authentiai-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(34, 211, 238, 0.2);
+  border-top-color: #22d3ee;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.authentiai-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.authentiai-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.authentiai-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22d3ee, #14b8a6);
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+#authentiai-progress-text {
+  color: #9ca3af;
+  font-size: 14px;
+  min-width: 40px;
+}
+
+/* Result State */
+.authentiai-result {
+  text-align: left;
+}
+
+.authentiai-score-section {
+  margin-bottom: 20px;
+}
+
+.authentiai-label {
+  color: #9ca3af;
+  font-size: 13px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.authentiai-score-bar {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.authentiai-score-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+.authentiai-score-value {
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.authentiai-status-badge {
+  padding: 12px 16px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+
+.authentiai-status-badge.authentic {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.authentiai-status-badge.suspicious {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.authentiai-meta {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.authentiai-meta p {
+  margin: 0;
+  color: #d1d5db;
+}
+
+.authentiai-findings {
+  margin-bottom: 20px;
+}
+
+.authentiai-findings ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.authentiai-findings li {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #d1d5db;
+}
+
+.authentiai-findings li.pass {
+  border-left: 3px solid #22c55e;
+}
+
+.authentiai-findings li.fail {
+  border-left: 3px solid #ef4444;
+}
+
+.authentiai-findings li.warning {
+  border-left: 3px solid #eab308;
+}
+
+.authentiai-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.authentiai-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.authentiai-btn.primary {
+  background: linear-gradient(135deg, #22d3ee, #14b8a6);
+  color: #0a0e17;
+}
+
+.authentiai-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3);
+}
+
+.authentiai-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.authentiai-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.authentiai-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.authentiai-footer p {
+  margin: 4px 0;
+}
+
+/* Error State */
+.authentiai-error {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.authentiai-error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.authentiai-error h3 {
+  color: #ef4444;
+  margin: 0 0 8px;
+}
+
+.authentiai-error p {
+  color: #9ca3af;
+  margin: 0 0 20px;
+}

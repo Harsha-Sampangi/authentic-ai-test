@@ -19,6 +19,16 @@ class VideoDeepfakeAnalyzer:
         """
         self.image_detector = image_detector
         print("🎬 Video Analyzer initialized")
+        
+        # Check for ffmpeg
+        try:
+            subprocess.run(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.ffmpeg_available = True
+            print("   ✅ FFmpeg detected (Audio analysis enabled)")
+        except FileNotFoundError:
+            self.ffmpeg_available = False
+            print("   ⚠️ FFmpeg not found. Audio analysis will be skipped.")
+            print("   👉 Install with: brew install ffmpeg")
     
     def extract_audio(self, video_path):
         """
@@ -31,6 +41,10 @@ class VideoDeepfakeAnalyzer:
             Path to extracted audio file (temp .wav) or None if no audio
         """
         try:
+            if not self.ffmpeg_available:
+                print("   ⚠️ Skipping audio extraction (FFmpeg missing)")
+                return None
+                
             print(f"   🎙️ Extracting audio from video...")
             
             # Create temp file for audio
@@ -188,23 +202,33 @@ class VideoDeepfakeAnalyzer:
         # Calculate overall statistics
         scores = [r['authenticity_score'] for r in frame_results]
         
-        # Cast numpy types to python types for JSON serialization
-        overall_score = float(np.mean(scores))
+        # Apply Temporal Smoothing (Moving Average)
+        # This reduces noise from individual bad frames (blur, compression)
+        window_size = 3
+        smoothed_scores = []
+        if len(scores) >= window_size:
+            smoothed_scores = np.convolve(scores, np.ones(window_size)/window_size, mode='valid')
+        else:
+            smoothed_scores = scores
+            
+        overall_score = float(np.mean(smoothed_scores)) if len(smoothed_scores) > 0 else float(np.mean(scores))
+        
         min_score = float(np.min(scores))
         max_score = float(np.max(scores))
         std_score = float(np.std(scores))
         
-        # Count suspicious frames
-        suspicious_frames = sum(1 for r in frame_results if r['is_deepfake'])
+        # Count suspicious frames (using strict threshold)
+        suspicious_frames = sum(1 for s in scores if s < 50)
         suspicious_percentage = (suspicious_frames / len(frame_results)) * 100
         
         # Determine overall verdict
-        is_deepfake = bool(overall_score < 50 or suspicious_percentage > 30)
+        # Relaxed threshold: Require sustained evidence, not just 30% bad frames
+        is_deepfake = bool(overall_score < 50 or suspicious_percentage > 40)
         
         # Confidence based on consistency
-        if std_score < 10:  # Consistent scores
+        if std_score < 15:  # Consistent scores
             confidence = 'high'
-        elif std_score < 20:
+        elif std_score < 25:
             confidence = 'medium'
         else:
             confidence = 'low'

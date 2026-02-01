@@ -177,7 +177,9 @@ function App() {
       setCurrentScreen('results')
     } catch (error) {
       console.error('Analysis failed:', error)
-      alert('Analysis failed. Make sure backend is running on port 8000')
+      console.error('Analysis failed:', error)
+      alert(`Analysis failed: ${error.message}. Make sure backend is running on port 8000`)
+      setCurrentScreen('landing')
       setCurrentScreen('landing')
     }
   }
@@ -199,7 +201,7 @@ function App() {
             <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-xl">
               📁
             </div>
-            <span className="text-xl font-bold">Authenti.AI</span>
+            <span className="text-xl font-bold">Authentic.AI</span>
           </div>
           <div className="flex items-center gap-6">
             <button
@@ -219,6 +221,12 @@ function App() {
               className="text-sm text-gray-400 hover:text-white"
             >
               History
+            </button>
+            <button
+              onClick={() => setCurrentScreen('fakenews')}
+              className="text-sm text-emerald-400 hover:text-emerald-300 font-medium"
+            >
+              📰 Fake News
             </button>
             <button className="text-sm text-gray-400 hover:text-white">Settings</button>
             <button className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
@@ -364,7 +372,7 @@ function App() {
             <button className="hover:text-gray-300">Contact</button>
           </div>
           <p className="text-center text-xs text-gray-600 mt-6">
-            © 2024 Authenti.AI. All rights reserved.
+            © 2026 Authentic.AI. All rights reserved.
           </p>
         </div>
       )}
@@ -382,6 +390,11 @@ function App() {
       {/* History Screen */}
       {currentScreen === 'history' && (
         <HistoryScreen onViewReport={() => setCurrentScreen('results')} />
+      )}
+
+      {/* Fake News Screen */}
+      {currentScreen === 'fakenews' && (
+        <FakeNewsScreen onBack={() => setCurrentScreen('landing')} />
       )}
     </div>
   )
@@ -433,7 +446,7 @@ function AnalyzingScreen({ isVideo }) {
             clearInterval(interval)
             return prev
           }
-          return { ...prev, metadata: prev.metadata + 3 }
+          return { ...prev, metadata: Math.min(prev.metadata + 3, 100) }
         })
       }, 30)
     }, 2500))
@@ -553,17 +566,40 @@ function ResultsScreen({ result, previewUrl, onReset }) {
           {result.type === 'video' && ` • ${result.frameCount} frames analyzed`}
         </p>
         <div className="flex gap-3 mt-4">
-          <button className="bg-cyan-400 hover:bg-cyan-300 text-gray-900 font-semibold px-6 py-2 rounded-lg text-sm">
-            Download Report
+          <button
+            onClick={() => window.print()}
+            className="bg-cyan-400 hover:bg-cyan-300 text-gray-900 font-semibold px-6 py-2 rounded-lg text-sm"
+          >
+            Download Report (PDF)
           </button>
-          <button className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm">
-            Export JSON
-          </button>
-          <button className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm">
+
+          <button
+            onClick={() => {
+              // Simple CSV Export
+              const headers = ["Metric", "Value"];
+              const rows = [
+                ["Filename", result.filename],
+                ["Authenticity Score", result.score + "%"],
+                ["Status", result.status],
+                ["Timestamp", result.timestamp],
+                ["Type", result.type],
+                ["Model Version", result.model_version || "N/A"]
+              ];
+              const csvContent = "data:text/csv;charset=utf-8,"
+                + rows.map(e => e.join(",")).join("\n");
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement("a");
+              link.setAttribute("href", encodedUri);
+              link.setAttribute("download", `authentic_ai_report_${new Date().getTime()}.csv`);
+              document.body.appendChild(link);
+              link.click();
+            }}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm"
+          >
             Export CSV
           </button>
           <button onClick={onReset} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
-            Share
+            Analysis New
           </button>
         </div>
       </div>
@@ -1043,6 +1079,307 @@ function ConfidenceBar({ label, value }) {
           style={{ width: `${value}%` }}
         />
       </div>
+    </div>
+  )
+}
+
+// Fake News Analyzer Screen
+function FakeNewsScreen({ onBack }) {
+  const [inputType, setInputType] = useState('url') // 'url' or 'text'
+  const [urlInput, setUrlInput] = useState('')
+  const [textInput, setTextInput] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+
+  const analyzeNews = async () => {
+    setIsAnalyzing(true)
+    setError(null)
+    setResult(null)
+
+    try {
+      const response = await fetch(`${API_URL}/api/analyze-news`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: inputType === 'url' ? urlInput : null,
+          text: inputType === 'text' ? textInput : null
+        })
+      })
+
+      if (!response.ok) {
+        console.error('Response Status:', response.status, response.statusText);
+        const text = await response.text();
+        console.error('Response Body:', text);
+        try {
+          const err = JSON.parse(text);
+          let errorMessage = 'Analysis failed';
+          if (err.detail) {
+            if (typeof err.detail === 'string') errorMessage = err.detail;
+            else if (Array.isArray(err.detail)) errorMessage = err.detail.map(e => e.msg).join(', ');
+            else errorMessage = JSON.stringify(err.detail);
+          }
+          throw new Error(errorMessage)
+        } catch (e) {
+          // If JSON parse fails, use the raw text or status
+          throw new Error(text || `Request failed with status ${response.status}`);
+        }
+      }
+
+      const data = await response.json()
+      setResult(data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const resetAnalysis = () => {
+    setResult(null)
+    setUrlInput('')
+    setTextInput('')
+    setError(null)
+  }
+
+  const getScoreColor = (score) => {
+    if (score >= 70) return 'text-green-400'
+    if (score >= 40) return 'text-yellow-400'
+    return 'text-red-400'
+  }
+
+  const getScoreBg = (score) => {
+    if (score >= 70) return 'bg-green-500'
+    if (score >= 40) return 'bg-yellow-500'
+    return 'bg-red-500'
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">📰 Fake News Detector</h1>
+        <p className="text-gray-400">Analyze articles and text for misinformation indicators</p>
+      </div>
+
+      {!result ? (
+        // Input Form
+        <div className="bg-gray-800/50 rounded-2xl p-8 border border-gray-700">
+          {/* Input Type Toggle */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setInputType('url')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${inputType === 'url'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+            >
+              🔗 Analyze URL
+            </button>
+            <button
+              onClick={() => setInputType('text')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${inputType === 'text'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+            >
+              📝 Analyze Text
+            </button>
+          </div>
+
+          {/* URL Input */}
+          {inputType === 'url' && (
+            <div className="space-y-4">
+              <label className="block text-sm text-gray-400">Article URL</label>
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://example.com/article..."
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          )}
+
+          {/* Text Input */}
+          {inputType === 'text' && (
+            <div className="space-y-4">
+              <label className="block text-sm text-gray-400">Article Text or Headline</label>
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Paste article text or headline here..."
+                rows={6}
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 resize-none"
+              />
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={analyzeNews}
+            disabled={isAnalyzing || (!urlInput && !textInput)}
+            className="mt-6 w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl font-medium transition"
+          >
+            {isAnalyzing ? '🔄 Analyzing...' : '🔍 Analyze for Fake News'}
+          </button>
+
+          {/* Example Texts */}
+          <div className="mt-8 pt-6 border-t border-gray-700">
+            <p className="text-xs text-gray-500 mb-3">Try these examples:</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => { setInputType('text'); setTextInput('BREAKING: Scientists discover miracle cure that doctors don\'t want you to know about!') }}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300"
+              >
+                Clickbait Example
+              </button>
+              <button
+                onClick={() => { setInputType('url'); setUrlInput('https://www.reuters.com') }}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300"
+              >
+                Credible Source
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        // Results Display
+        <div className="space-y-6">
+          {/* Score Card */}
+          <div className={`rounded-2xl p-8 text-center ${result.credibility_score >= 70 ? 'bg-gradient-to-br from-green-900/50 to-green-800/30 border border-green-700' :
+            result.credibility_score >= 40 ? 'bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 border border-yellow-700' :
+              'bg-gradient-to-br from-red-900/50 to-red-800/30 border border-red-700'
+            }`}>
+            <div className={`text-6xl font-bold mb-2 ${getScoreColor(result.credibility_score)}`}>
+              {Math.round(result.credibility_score)}%
+            </div>
+            <div className="text-xl font-semibold mb-4">{result.verdict}</div>
+            <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className={`h-full ${getScoreBg(result.credibility_score)} transition-all`}
+                style={{ width: `${result.credibility_score}%` }}
+              />
+            </div>
+            <p className="mt-4 text-sm text-gray-400">Credibility Score</p>
+          </div>
+
+          {/* Recommendation */}
+          <div className={`p-4 rounded-xl ${result.recommendation === 'safe_to_share' ? 'bg-green-900/30 border border-green-700' :
+            result.recommendation === 'verify_first' ? 'bg-yellow-900/30 border border-yellow-700' :
+              'bg-red-900/30 border border-red-700'
+            }`}>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {result.recommendation === 'safe_to_share' ? '✅' :
+                  result.recommendation === 'verify_first' ? '⚠️' : '🚫'}
+              </span>
+              <div>
+                <div className="font-semibold">
+                  {result.recommendation === 'safe_to_share' ? 'Safe to Share' :
+                    result.recommendation === 'verify_first' ? 'Verify Before Sharing' :
+                      'Do Not Share'}
+                </div>
+                <div className="text-sm text-gray-400">
+                  {result.recommendation === 'safe_to_share' ? 'This content appears credible' :
+                    result.recommendation === 'verify_first' ? 'Cross-check with trusted sources' :
+                      'This content shows misinformation indicators'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Alerts */}
+          {result.alerts && result.alerts.length > 0 && (
+            <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+              <h3 className="font-semibold mb-4">🚨 Analysis Alerts</h3>
+              <div className="space-y-3">
+                {result.alerts.map((alert, idx) => (
+                  <div key={idx} className={`p-3 rounded-lg ${alert.severity === 'High' ? 'bg-red-900/30 border border-red-700' :
+                    alert.severity === 'Medium' ? 'bg-yellow-900/30 border border-yellow-700' :
+                      'bg-green-900/30 border border-green-700'
+                    }`}>
+                    <div className="flex items-center gap-2">
+                      <span>{alert.icon}</span>
+                      <span className="font-medium">{alert.title}</span>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-1">{alert.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Breakdown */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Text Analysis */}
+            <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+              <h3 className="font-semibold mb-4">📝 Text Analysis</h3>
+              <div className="space-y-3">
+                <ConfidenceBar label="Content Score" value={result.text_analysis?.score || 50} />
+                <div className="text-sm space-y-1">
+                  {result.text_analysis?.clickbait_detected && (
+                    <div className="text-yellow-400">⚠️ Clickbait detected</div>
+                  )}
+                  {result.text_analysis?.emotional_manipulation && (
+                    <div className="text-yellow-400">⚠️ Emotional manipulation</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Source Analysis */}
+            <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+              <h3 className="font-semibold mb-4">🔗 Source Analysis</h3>
+              <div className="space-y-3">
+                <ConfidenceBar label="Source Score" value={result.source_analysis?.score || 50} />
+                {result.source_analysis?.domain && (
+                  <div className="text-sm text-gray-400">
+                    Domain: <span className="text-white">{result.source_analysis.domain}</span>
+                  </div>
+                )}
+                {result.source_analysis?.is_credible && (
+                  <div className="text-sm text-green-400">✅ Verified credible source</div>
+                )}
+                {result.source_analysis?.is_unreliable && (
+                  <div className="text-sm text-red-400">🚫 Flagged unreliable source</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Analyzed Content */}
+          {result.analyzed_content?.title && (
+            <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+              <h3 className="font-semibold mb-4">📄 Analyzed Content</h3>
+              <div className="text-lg font-medium mb-2">{result.analyzed_content.title}</div>
+              {result.analyzed_content.text_preview && (
+                <p className="text-sm text-gray-400 line-clamp-4">{result.analyzed_content.text_preview}</p>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-4">
+            <button
+              onClick={resetAnalysis}
+              className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-medium transition"
+            >
+              🔄 New Analysis
+            </button>
+            <button
+              onClick={onBack}
+              className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium transition"
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

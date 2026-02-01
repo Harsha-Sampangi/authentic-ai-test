@@ -66,12 +66,29 @@ class MediaDownloader:
                 if not downloaded_path.exists():
                     raise Exception("File not found after download")
                 
-                # Determine type
-                # Simple check based on extension or info
+                # Determine type by content first, then extension
+                media_type = 'video' # Default
+                
+                try:
+                    from PIL import Image
+                    try:
+                        with Image.open(downloaded_path) as img:
+                            img.verify() # Verify it's an image
+                            media_type = 'image'
+                    except:
+                        # Not an image or corrupted
+                        pass
+                except ImportError:
+                    # Fallback to extension check if PIL used improperly (though it's in requirements)
+                    pass
+                
+                # If PIL didn't say it's an image, check extensions for audio
                 ext = downloaded_path.suffix.lower()
-                media_type = 'video'
-                if ext in ['.mp3', '.wav', '.opus', '.m4a', '.flac', '.aac']:
-                    media_type = 'audio'
+                if media_type == 'video': # Only check if not already identified as image
+                    if ext in ['.mp3', '.wav', '.opus', '.m4a', '.flac', '.aac', '.wma']:
+                        media_type = 'audio'
+                    elif ext in ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif', '.tiff']:
+                        media_type = 'image' # Double check extension
                 
                 return {
                     'path': downloaded_path,

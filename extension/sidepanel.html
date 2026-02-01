@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentic.AI</title>
+    <link rel="stylesheet" href="sidepanel.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="brand">
+            <span class="brand-icon">🛡️</span>
+            <span class="brand-name">Authentic.AI</span>
+        </div>
+        <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="media">🖼️ Media</button>
+        <button class="tab-btn" data-tab="news">📰 News</button>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main id="main-content">
+        <!-- Landing Screen -->
+        <div id="landing-screen" class="screen active">
+            <div class="upload-section">
+                <div class="upload-area" id="drop-zone">
+                    <input type="file" id="file-input" accept="image/*,video/*,audio/*" hidden>
+                    <div class="upload-icon">📤</div>
+                    <h2>Upload Media</h2>
+                    <p>Drag & drop or click to select</p>
+                    <p class="formats">JPG, PNG, MP4, MP3, WAV</p>
+                </div>
+
+                <div class="divider">
+                    <span>OR PASTE URL</span>
+                </div>
+
+                <div class="url-input-group">
+                    <input type="text" id="url-input" placeholder="https://instagram.com/reel/...">
+                    <button id="analyze-url-btn" class="btn primary" disabled>Analyze</button>
+                </div>
+            </div>
+
+            <!-- Preview Section (hidden by default) -->
+            <div id="preview-section" class="preview-section hidden">
+                <div class="preview-container">
+                    <img id="preview-image" src="" alt="Preview" class="hidden">
+                    <video id="preview-video" controls class="hidden"></video>
+                    <audio id="preview-audio" controls class="hidden"></audio>
+                </div>
+                <p id="file-name"></p>
+                <button id="analyze-file-btn" class="btn primary full-width">Analyze Now</button>
+                <button id="clear-file-btn" class="btn secondary full-width">Clear</button>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="stats-section">
+                <h3>Today's Activity</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total">0</span>
+                        <span class="stat-label">Analyzed</span>
+                    </div>
+                    <div class="stat-card authentic">
+                        <span class="stat-value" id="stat-authentic">0</span>
+                        <span class="stat-label">Authentic</span>
+                    </div>
+                    <div class="stat-card suspicious">
+                        <span class="stat-value" id="stat-suspicious">0</span>
+                        <span class="stat-label">Suspicious</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analyzing Screen -->
+        <div id="analyzing-screen" class="screen">
+            <div class="analyzing-content">
+                <div class="spinner"></div>
+                <h2>Analyzing Media...</h2>
+                <p id="analyzing-status">Running forensic intelligence</p>
+
+                <div class="progress-bars">
+                    <div class="progress-item">
+                        <span>Artifact Inspection</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-artifact"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <span>Noise Analysis</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-noise"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <span>Deepfake Detection</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-deepfake"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="screen">
+            <div class="results-content">
+                <!-- Score Card -->
+                <div class="score-card" id="score-card">
+                    <div class="score-header">
+                        <div class="score-value" id="result-score">0%</div>
+                        <div class="score-status" id="result-status">ANALYZING</div>
+                    </div>
+                    <div class="score-bar">
+                        <div class="score-fill" id="score-fill"></div>
+                    </div>
+                    <p class="score-label">Authenticity Score</p>
+                </div>
+
+                <!-- Media Preview -->
+                <div class="result-preview" id="result-preview">
+                    <img id="result-image" src="" alt="Result" class="hidden">
+                    <video id="result-video" controls class="hidden"></video>
+                </div>
+
+                <!-- Alerts -->
+                <div class="alerts-section" id="alerts-section">
+                    <h3>🚨 Issue Alerts</h3>
+                    <div id="alerts-list"></div>
+                </div>
+
+                <!-- Forensic Breakdown -->
+                <div class="forensic-section" id="forensic-section">
+                    <h3>🔬 Forensic Breakdown</h3>
+                    <div id="forensic-list"></div>
+
+                    <div class="confidence-breakdown">
+                        <h4>Decision Confidence</h4>
+                        <div id="confidence-bars"></div>
+                    </div>
+
+                    <div class="ai-explanation" id="ai-explanation"></div>
+                </div>
+
+                <!-- Video Timeline (for videos only) -->
+                <div class="timeline-section hidden" id="timeline-section">
+                    <h3>🎬 Frame Timeline</h3>
+                    <div class="timeline-info" id="timeline-info"></div>
+                    <div class="timeline-chart" id="timeline-chart"></div>
+                    <div class="suspicious-segments" id="suspicious-segments"></div>
+                </div>
+
+                <!-- Report -->
+                <div class="report-section">
+                    <h3>📋 Credibility Report</h3>
+                    <p id="result-report"></p>
+                </div>
+
+                <!-- Actions -->
+                <div class="result-actions">
+                    <button id="new-analysis-btn" class="btn primary full-width">New Analysis</button>
+                    <button id="open-dashboard-btn" class="btn secondary full-width">Open Full Dashboard</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fake News Screen -->
+        <div id="news-screen" class="screen">
+            <div class="news-content">
+                <h2>📰 Fake News Detector</h2>
+                <p class="subtitle">Analyze articles for misinformation</p>
+
+                <div class="news-input-section">
+                    <div class="input-toggle">
+                        <button class="toggle-btn active" data-type="url">🔗 URL</button>
+                        <button class="toggle-btn" data-type="text">📝 Text</button>
+                    </div>
+
+                    <div id="news-url-input" class="input-group">
+                        <input type="url" id="news-url" placeholder="https://example.com/article...">
+                    </div>
+
+                    <div id="news-text-input" class="input-group hidden">
+                        <textarea id="news-text" placeholder="Paste article text or headline..." rows="4"></textarea>
+                    </div>
+
+                    <button id="analyze-news-btn" class="btn primary full-width" disabled>
+                        🔍 Analyze for Fake News
+                    </button>
+                </div>
+
+                <!-- News Results (hidden by default) -->
+                <div id="news-results" class="hidden">
+                    <div class="news-score-card" id="news-score-card">
+                        <div class="score-value" id="news-score">0%</div>
+                        <div class="score-status" id="news-verdict">ANALYZING</div>
+                        <div class="score-bar">
+                            <div class="score-fill" id="news-score-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="news-recommendation" id="news-recommendation"></div>
+
+                    <div class="news-alerts" id="news-alerts"></div>
+
+                    <div class="news-breakdown">
+                        <div class="breakdown-item">
+                            <span>Text Analysis</span>
+                            <div class="breakdown-bar">
+                                <div class="breakdown-fill" id="text-score-fill"></div>
+                            </div>
+                            <span id="text-score-value">0%</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>Source Score</span>
+                            <div class="breakdown-bar">
+                                <div class="breakdown-fill" id="source-score-fill"></div>
+                            </div>
+                            <span id="source-score-value">0%</span>
+                        </div>
+                    </div>
+
+                    <button id="new-news-analysis-btn" class="btn primary full-width">
+                        🔄 New Analysis
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="sidepanel.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentic.AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 280px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0e17 0%, #1a2332 100%);
+            color: #fff;
+        }
+
+        .popup-header {
+            padding: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .popup-header .icon {
+            font-size: 24px;
+        }
+
+        .popup-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .popup-content {
+            padding: 16px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .stat-card .label {
+            color: #9ca3af;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #22d3ee, #14b8a6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .breakdown-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .breakdown-item .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .breakdown-item .dot.green {
+            background: #22c55e;
+        }
+
+        .breakdown-item .dot.red {
+            background: #ef4444;
+        }
+
+        .breakdown-item .dot.yellow {
+            background: #eab308;
+        }
+
+        .breakdown-item .left {
+            display: flex;
+            align-items: center;
+        }
+
+        .breakdown-item .count {
+            font-weight: 600;
+            color: #d1d5db;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .actions button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .actions .primary {
+            background: linear-gradient(135deg, #22d3ee, #14b8a6);
+            color: #0a0e17;
+        }
+
+        .actions .primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3);
+        }
+
+        .actions .secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .actions .secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .footer {
+            padding: 12px 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            font-size: 11px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="popup-header">
+        <span class="icon">🛡️</span>
+        <h1>Authentic.AI</h1>
+    </div>
+
+    <div class="popup-content">
+        <div class="stat-card">
+            <div class="label">Analyses Today</div>
+            <div class="value" id="total-count">0</div>
+        </div>
+
+        <div class="breakdown">
+            <div class="breakdown-item">
+                <div class="left">
+                    <span class="dot green"></span>
+                    <span>Authentic</span>
+                </div>
+                <span class="count" id="authentic-count">0</span>
+            </div>
+            <div class="breakdown-item">
+                <div class="left">
+                    <span class="dot red"></span>
+                    <span>Suspicious</span>
+                </div>
+                <span class="count" id="suspicious-count">0</span>
+            </div>
+            <div class="breakdown-item">
+                <div class="left">
+                    <span class="dot yellow"></span>
+                    <span>Uncertain</span>
+                </div>
+                <span class="count" id="uncertain-count">0</span>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="primary" id="open-dashboard">View Dashboard</button>
+            <button class="secondary" id="open-settings">Settings</button>
+        </div>
+    </div>
+
+    <div class="footer">
+        Right-click any image to analyze
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

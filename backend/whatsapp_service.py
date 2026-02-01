@@ -63,7 +63,7 @@ class WhatsAppHandler:
             # Case 3: Text Help
             else:
                 resp.message(
-                    "👋 *Welcome to Authenti.AI Bot*\n\n"
+                    "👋 *Welcome to Authentic.AI Bot*\n\n"
                     "I can detect Deepfakes in:\n"
                     "📸 Images\n"
                     "🎥 Videos\n"
@@ -150,7 +150,7 @@ class WhatsAppHandler:
         status_text = "LIKELY AUTHENTIC" if not result['is_fake'] else "SUSPICIOUS DETECTED"
         
         return (
-            f"🚨 *Authenti.AI Report*\n"
+            f"🚨 *Authentic.AI Report*\n"
             f"━━━━━━━━━━━━━━\n"
             f"📂 Type: *{result['type']}*\n"
             f"🛡️ Status: {status_emoji} *{status_text}*\n"
@@ -158,5 +158,5 @@ class WhatsAppHandler:
             f"🤖 Confidence: {result['confidence']:.1f}%\n"
             f"━━━━━━━━━━━━━━\n"
             f"🔍 *Analysis*: {result['details']}\n\n"
-            f"_Securely analyzed by Authenti.AI Engine_"
+            f"_Securely analyzed by Authentic.AI Engine_"
         )

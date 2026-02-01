@@ -1,5 +1,5 @@
 """
-Authenti.AI Backend API
+Authentic.AI Backend API
 A comprehensive deepfake detection system with forensic analysis and evidence integrity tracking.
 """
 
@@ -18,13 +18,22 @@ import logging
 
 # Import custom modules
 
-# Import custom modules
+# Try to import XceptionNet Ensemble (best accuracy)
 try:
-    from huggingface_model import detector
+    from xception_model import ensemble_detector
+    detector = ensemble_detector
     DETECTOR_AVAILABLE = True
+    print("✅ XceptionNet Ensemble Detector loaded (primary)")
 except ImportError as e:
-    print(f"Warning: Could not import detector: {e}")
-    DETECTOR_AVAILABLE = False
+    print(f"⚠️ XceptionNet not available: {e}, trying HuggingFace...")
+    # Fallback to HuggingFace detector
+    try:
+        from huggingface_model import detector
+        DETECTOR_AVAILABLE = True
+        print("✅ HuggingFace Detector loaded (fallback)")
+    except ImportError as e:
+        print(f"Warning: Could not import detector: {e}")
+        DETECTOR_AVAILABLE = False
 
 try:
     from video_analyzer import VideoDeepfakeAnalyzer
@@ -44,6 +53,17 @@ except ImportError as e:
     AUDIO_ANALYSIS_AVAILABLE = False
     audio_detector = None
 
+# Fake News Detection
+try:
+    from fake_news_detector import fake_news_detector
+    from web_scraper import web_scraper
+    FAKE_NEWS_AVAILABLE = True
+    print("✅ Fake News Detector loaded")
+except ImportError as e:
+    print(f"Warning: Could not import fake news detector: {e}")
+    FAKE_NEWS_AVAILABLE = False
+    fake_news_detector = None
+    web_scraper = None
 
 
 # Configure logging
@@ -58,7 +78,7 @@ logger = logging.getLogger(__name__)
 # ==========================================
 
 APP_VERSION = "1.3.0"
-APP_NAME = "Authenti.AI Backend"
+APP_NAME = "Authentic.AI Backend"
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -125,8 +145,8 @@ ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.o
 ALL_ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | ALLOWED_VIDEO_EXTENSIONS | ALLOWED_AUDIO_EXTENSIONS
 
 # File size limits
-MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
-MAX_VIDEO_SIZE = 50 * 1024 * 1024  # 50MB
+MAX_IMAGE_SIZE = 50 * 1024 * 1024  # 50MB (increased for modern smartphone cameras)
+MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB (increased for higher quality videos)
 MAX_AUDIO_SIZE = 20 * 1024 * 1024  # 20MB
 
 def get_file_extension(filename: str) -> str:
@@ -331,23 +351,36 @@ def generate_forensic_breakdown(authenticity_score: float, is_deepfake: bool, fi
     }
     
     # AI Explanation
-    if authenticity_score > 70:
+    # AI Explanation
+    if authenticity_score > 80:
         explanation = (
-            "The uploaded media demonstrates consistent visual, temporal, and noise characteristics "
-            "typically found in real-world camera recordings. No indicators of generative manipulation "
-            "were detected. Minor metadata loss does not impact overall authenticity assessment."
+            "Detailed forensic analysis using SOTA Vision Transformers confirms high visual integrity. "
+            "Facial landmarks, skin texture, and lighting consistency align perfectly with authentic optical capture. "
+            "No generative artifacts or pixel-level manipulation detected."
+        )
+    elif authenticity_score > 60:
+        explanation = (
+            "The media is likely authentic. While minor compression noise is present, the core visual "
+            "features maintain structural integrity. Our ensemble models did not find evidence of "
+            "AI-driven manipulation or face-swapping."
         )
     elif authenticity_score > 40:
         explanation = (
-            "The analysis reveals mixed signals across multiple forensic indicators. Some characteristics "
-            "align with authentic media, while others show minor inconsistencies. Manual review is "
-            "recommended for high-stakes verification."
+            "The analysis is inconclusive. Detected signals are mixed: some visual patterns appear natural, "
+            "while others show statistical anomalies common in re-encoded media. "
+            "We recommend secondary manual verification."
+        )
+    elif authenticity_score > 20:
+        explanation = (
+            "Suspicious anomalies detected. The Vision Transformer model identified inconsistent "
+            "pixel correlations typical of 'shallow' deepfakes or heavy editing. "
+            "Face structure and lighting do not fully align with physics-based rendering."
         )
     else:
         explanation = (
-            "Multiple forensic indicators suggest significant manipulation or synthetic generation. "
-            "The media exhibits patterns commonly associated with deepfake technology, including "
-            "unnatural facial features, inconsistent lighting, and artificial texture characteristics."
+            "CRITICAL ALERT: Strong evidence of synthetic generation detected. "
+            "SOTA analysis found significant spatial and temporal inconsistencies. "
+            "The content exhibits high-confidence markers of AI generation (GAN/Diffusion artifacts)."
         )
     
     # Build sections list
@@ -399,6 +432,95 @@ def update_trust_level(evidence_integrity: dict, authenticity_score: float) -> d
         evidence_integrity['trust_level'] = 'LOW'
     
     return evidence_integrity
+
+from typing import Optional
+
+# ==========================================
+# FAKE NEWS DETECTION ENDPOINT
+# ==========================================
+
+class FakeNewsRequest(BaseModel):
+    text: Optional[str] = None
+    url: Optional[str] = None
+    title: Optional[str] = None
+
+@app.post("/api/analyze-news")
+@app.post("/api/analyze-news/")
+async def analyze_news(request: FakeNewsRequest):
+    """
+    Analyze text or URL for fake news indicators
+    
+    Accepts:
+    - text: Article text to analyze
+    - url: Article URL to scrape and analyze
+    - title: Optional headline/title
+    """
+    logger.info(f"📰 Received fake news analysis request")
+    print(f"DEBUG: Analyze News Endpoint Hit!")
+    
+    if not FAKE_NEWS_AVAILABLE or not fake_news_detector:
+        raise HTTPException(status_code=503, detail="Fake news detection not available")
+    
+    text = request.text
+    url = request.url
+    title = request.title
+    
+    # If URL provided, scrape content
+    scraped_data = None
+    if url and web_scraper:
+        try:
+            logger.info(f"   Scraping URL: {url}")
+            scraped_data = web_scraper.extract_article(url)
+            
+            if scraped_data["success"]:
+                # Use scraped content if not provided
+                if not text:
+                    text = scraped_data.get("text", "")
+                if not title:
+                    title = scraped_data.get("title", "")
+            else:
+                logger.warning(f"   Scrape failed: {scraped_data.get('error')}")
+        except Exception as e:
+            logger.error(f"   Scrape error: {e}")
+    
+    # Validate we have something to analyze
+    if not text and not url:
+        raise HTTPException(status_code=400, detail="Please provide text or URL to analyze")
+    
+    try:
+        # Run analysis
+        result = fake_news_detector.predict(text=text, url=url, title=title)
+        
+        # Add metadata
+        timestamps = get_timestamps()
+        
+        response = {
+            "credibility_score": result["credibility_score"],
+            "verdict": result["verdict"],
+            "recommendation": result["recommendation"],
+            "is_likely_fake": result["is_likely_fake"],
+            "confidence": result["confidence"],
+            "text_analysis": result["text_analysis"],
+            "source_analysis": result["source_analysis"],
+            "alerts": result["alerts"],
+            "analyzed_content": {
+                "title": title or (scraped_data.get("title") if scraped_data else None),
+                "text_preview": (text[:500] + "...") if text and len(text) > 500 else text,
+                "url": url,
+                "author": scraped_data.get("author") if scraped_data else None,
+                "publisher": scraped_data.get("publisher") if scraped_data else None,
+                "published_date": scraped_data.get("published_date") if scraped_data else None,
+            },
+            "timestamp": timestamps["ist"],
+            "analysis_engine": f"{APP_NAME} v{APP_VERSION}"
+        }
+        
+        logger.info(f"   ✅ Analysis complete: {result['verdict']} ({result['credibility_score']}%)")
+        return JSONResponse(content=response)
+        
+    except Exception as e:
+        logger.error(f"Fake news analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 # ==========================================
 class UrlRequest(BaseModel):
@@ -472,6 +594,56 @@ async def analyze_url(request: UrlRequest):
             }
              return JSONResponse(content=response)
              
+             return JSONResponse(content=response)
+             
+        elif media_type == 'image':
+             # Image analysis
+             logger.info(f"🖼️ Analyzing image from URL...")
+             if not DETECTOR_AVAILABLE:
+                  raise HTTPException(status_code=503, detail="Image detector not available")
+
+             # Generate heatmap
+             heatmap_filename = f"{file_id}_heatmap.jpg"
+             heatmap_path = HEATMAP_FOLDER / heatmap_filename
+             try:
+                 detector.generate_heatmap(str(upload_path), str(heatmap_path))
+             except Exception as e:
+                 logger.error(f"heatmap error: {e}")
+                 heatmap_path = None
+
+             result = detector.predict(str(upload_path))
+             
+             evidence_integrity = update_trust_level(evidence_integrity, result['authenticity_score'])
+             evidence_integrity['audit_log'].append({'event': 'URL Image Analysis Complete', 'time': evidence_integrity['upload_time']['ist']})
+             
+             forensic_breakdown = generate_forensic_breakdown(
+                result['authenticity_score'],
+                result['is_deepfake'],
+                file_type='image'
+            )
+             
+             response = {
+                "type": "image",
+                "authenticity_score": result['authenticity_score'],
+                "is_deepfake": result['is_deepfake'],
+                "confidence": result['confidence'],
+                "filename": filename,
+                "file_id": file_id,
+                "alerts": result['alerts'],
+                "heatmap_url": f"/heatmaps/{heatmap_filename}" if heatmap_path and heatmap_path.exists() else None,
+                "report": (
+                    f"Image analysis of URL content indicates the file is "
+                    f"{'likely real' if result['authenticity_score'] > 50 else 'potential deepfake'}. "
+                    f"Authenticity score: {result['authenticity_score']:.1f}%."
+                ),
+                "timestamp": file_id,
+                "forensic_breakdown": forensic_breakdown,
+                "evidence_integrity": evidence_integrity,
+                "source_url": url,
+                "title": media_info['title']
+            }
+             return JSONResponse(content=response)
+
         else:
             # Video analysis
              logger.info(f"🎬 Analyzing video from URL...")
@@ -662,19 +834,24 @@ async def analyze_image(file: UploadFile = File(...)):
     
     # ========== VALIDATION ==========
     
+    logger.info(f"🔍 Validation 1: Checking if file exists...")
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
     
+    logger.info(f"🔍 Validation 2: Checking file type (filename: {file.filename})...")
     if not is_allowed_file(file.filename, "image"):
+        logger.error(f"❌ File type rejected: {get_file_extension(file.filename)}")
         raise HTTPException(
             status_code=400,
             detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
         )
     
+    logger.info(f"🔍 Validation 3: Checking file size...")
     # Check file size
     file.file.seek(0, 2)
     file_size = file.file.tell()
     file.file.seek(0)
+    logger.info(f"📏 File size: {file_size / (1024 * 1024):.2f}MB")
     
     if not validate_file_size(file_size, "image"):
         raise HTTPException(
@@ -682,6 +859,7 @@ async def analyze_image(file: UploadFile = File(...)):
             detail=f"File too large (max {MAX_IMAGE_SIZE / (1024 * 1024)}MB)"
         )
     
+    logger.info(f"🔍 Validation 4: Checking detector availability...")
     # Check if detector is available
     if not DETECTOR_AVAILABLE:
         raise HTTPException(
@@ -691,6 +869,7 @@ async def analyze_image(file: UploadFile = File(...)):
     
     # ========== FILE PROCESSING ==========
     
+    print(f"🔥 HIT /api/analyze: {file.filename}")
     file_id = str(uuid.uuid4())
     file_extension = get_file_extension(file.filename)
     upload_path = UPLOAD_FOLDER / f"{file_id}{file_extension}"
@@ -769,8 +948,10 @@ async def analyze_image(file: UploadFile = File(...)):
         if heatmap_path and heatmap_path.exists():
             heatmap_path.unlink()
         
-        logger.error(f"❌ Error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"❌ Error: {error_trace}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)} | Trace: {error_trace}")
 
 @app.post("/api/analyze-video")
 async def analyze_video(file: UploadFile = File(...)):
@@ -1177,7 +1358,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on application shutdown"""
-    logger.info("🛑 Shutting down Authenti.AI Backend")
+    logger.info("🛑 Shutting down Authentic.AI Backend")
 
 # ==========================================
 # MAIN ENTRY POINT
