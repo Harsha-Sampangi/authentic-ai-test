@@ -32,12 +32,12 @@ Authentic.AI is a comprehensive deepfake detection system designed to ensure med
 
 ### Quick Start (Docker)
 
-The easiest way to run Authenti.AI is using Docker Compose.
+The easiest way to run Authentic.AI is using Docker Compose.
 
 1.  Clone the repository:
     ```bash
     git clone <repository_url>
-    cd authentic-ai-test
+    cd authentic.ai
     ```
 
 2.  Start the services:

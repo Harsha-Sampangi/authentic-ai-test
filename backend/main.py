@@ -1,5 +1,5 @@
 """
-Authenti.AI Backend API
+Authentic.AI Backend API
 A comprehensive deepfake detection system with forensic analysis and evidence integrity tracking.
 """
 
@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 # ==========================================
 
 APP_VERSION = "1.3.0"
-APP_NAME = "Authenti.AI Backend"
+APP_NAME = "Authentic.AI Backend"
 
 # Initialize FastAPI app
 app = FastAPI(

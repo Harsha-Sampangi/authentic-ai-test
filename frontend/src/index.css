@@ -2,6 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Print Styles for Clean Reports */
+@media print {
+
+  nav,
+  button,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+
+  body,
+  #root {
+    background: white !important;
+    color: black !important;
+  }
+
+  .bg-gray-800,
+  .bg-\[\#0a0e17\] {
+    background: white !important;
+    border: 1px solid #ddd;
+    color: black !important;
+  }
+
+  /* Ensure text is readable */
+  .text-white,
+  .text-gray-300,
+  .text-gray-400 {
+    color: black !important;
+  }
+}
+
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

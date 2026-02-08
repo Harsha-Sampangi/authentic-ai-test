@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "Authentic.AI Companion",
+    "version": "2.0",
+    "description": "Professional Deepfake & Fake News Detection Side Panel",
+    "permissions": [
+        "sidePanel",
+        "activeTab",
+        "scripting",
+        "contextMenus",
+        "storage"
+    ],
+    "host_permissions": [
+        "http://localhost:8000/"
+    ],
+    "side_panel": {
+        "default_path": "sidepanel.html"
+    },
+    "action": {
+        "default_title": "Open Analysis Panel"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    }
+}

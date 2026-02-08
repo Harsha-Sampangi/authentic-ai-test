@@ -1,7 +1,8 @@
 services:
   backend:
     build: ./backend
-    container_name: authenti-backend
+    image: authentic.ai/backend:latest
+    container_name: authentic.ai-backend
     ports:
       - "8000:8000"
     volumes:
@@ -13,7 +14,8 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: authenti-frontend
+    image: authentic.ai/frontend:latest
+    container_name: authentic.ai-frontend
     ports:
       - "5173:80"
     depends_on:

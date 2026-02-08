@@ -199,7 +199,7 @@ function App() {
             <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-xl">
               📁
             </div>
-            <span className="text-xl font-bold">Authenti.AI</span>
+            <span className="text-xl font-bold">Authentic.AI</span>
           </div>
           <div className="flex items-center gap-6">
             <button
@@ -220,7 +220,12 @@ function App() {
             >
               History
             </button>
-            <button className="text-sm text-gray-400 hover:text-white">Settings</button>
+            <button
+              onClick={() => setCurrentScreen('settings')}
+              className={`text-sm hover:text-white ${currentScreen === 'settings' ? 'text-white font-semibold' : 'text-gray-400'}`}
+            >
+              Settings
+            </button>
             <button className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
               ?
             </button>
@@ -364,7 +369,7 @@ function App() {
             <button className="hover:text-gray-300">Contact</button>
           </div>
           <p className="text-center text-xs text-gray-600 mt-6">
-            © 2024 Authenti.AI. All rights reserved.
+            © 2024 Authentic.AI. All rights reserved.
           </p>
         </div>
       )}
@@ -382,6 +387,11 @@ function App() {
       {/* History Screen */}
       {currentScreen === 'history' && (
         <HistoryScreen onViewReport={() => setCurrentScreen('results')} />
+      )}
+
+      {/* Settings Screen */}
+      {currentScreen === 'settings' && (
+        <SettingsScreen onBack={() => setCurrentScreen('landing')} />
       )}
     </div>
   )
@@ -553,17 +563,40 @@ function ResultsScreen({ result, previewUrl, onReset }) {
           {result.type === 'video' && ` • ${result.frameCount} frames analyzed`}
         </p>
         <div className="flex gap-3 mt-4">
-          <button className="bg-cyan-400 hover:bg-cyan-300 text-gray-900 font-semibold px-6 py-2 rounded-lg text-sm">
-            Download Report
+          <button
+            onClick={() => window.print()}
+            className="bg-cyan-400 hover:bg-cyan-300 text-gray-900 font-semibold px-6 py-2 rounded-lg text-sm flex items-center gap-2"
+          >
+            Download Report (PDF)
           </button>
-          <button className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm">
-            Export JSON
-          </button>
-          <button className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm">
+          <button
+            onClick={() => {
+              const headers = ["Metric", "Value"];
+              const rows = [
+                ["Filename", result.filename],
+                ["Analysis Date", new Date(result.timestamp).toLocaleString()],
+                ["Authenticity Score", Math.round(result.score) + "%"],
+                ["Verdict", result.status],
+                ["Analysis Engine", result.evidenceIntegrity?.analysisEngine || "Authentic.AI"]
+              ];
+              if (result.alerts) {
+                result.alerts.forEach(a => rows.push(["Alert", `${a.severity}: ${a.title}`]));
+              }
+              const csvContent = "data:text/csv;charset=utf-8,"
+                + rows.map(e => e.join(",")).join("\n");
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement("a");
+              link.setAttribute("href", encodedUri);
+              link.setAttribute("download", `authentic_ai_report_${new Date().getTime()}.csv`);
+              document.body.appendChild(link);
+              link.click();
+            }}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm"
+          >
             Export CSV
           </button>
           <button onClick={onReset} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
-            Share
+            Analysis New
           </button>
         </div>
       </div>
@@ -1048,3 +1081,227 @@ function ConfidenceBar({ label, value }) {
 }
 
 export default App
+// Settings Screen Component
+function SettingsScreen({ onBack }) {
+  const [activeTab, setActiveTab] = useState('general')
+  const [notifications, setNotifications] = useState({
+    email: true,
+    push: true,
+    weeklyReport: false,
+    securityAlerts: true
+  })
+  const [theme, setTheme] = useState('dark')
+
+  const tabs = [
+    { id: 'general', label: 'General', icon: '⚙️' },
+    { id: 'account', label: 'Account', icon: '👤' },
+    { id: 'notifications', label: 'Notifications', icon: '🔔' },
+    { id: 'security', label: 'Security', icon: '🔒' }
+  ]
+
+  return (
+    <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="flex items-center gap-4 mb-8">
+        <button
+          onClick={onBack}
+          className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition"
+        >
+          ←
+        </button>
+        <h1 className="text-3xl font-bold">Settings</h1>
+      </div>
+
+      <div className="grid md:grid-cols-[280px_1fr] gap-8">
+        {/* Sidebar */}
+        <div className="space-y-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition ${activeTab === tab.id
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                }`}
+            >
+              <span>{tab.icon}</span>
+              <span className="font-medium">{tab.label}</span>
+            </button>
+          ))}
+
+          <div className="pt-8 mt-8 border-t border-gray-800">
+            <div className="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">
+              System
+            </div>
+            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-red-400 hover:bg-red-500/10 transition">
+              <span>🚪</span>
+              <span className="font-medium">Sign Out</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="bg-gray-800/30 rounded-2xl border border-gray-700/50 p-8 min-h-[600px]">
+
+          {/* General Settings */}
+          {activeTab === 'general' && (
+            <div className="space-y-8 animate-fadeIn">
+              <div>
+                <h3 className="text-xl font-bold mb-1">Appearance</h3>
+                <p className="text-gray-400 text-sm mb-6">Customize how Authentic.AI looks on your device.</p>
+
+                <div className="grid grid-cols-3 gap-4">
+                  {['Light', 'Dark', 'System'].map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setTheme(mode.toLowerCase())}
+                      className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition ${theme === mode.toLowerCase()
+                        ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400'
+                        : 'bg-gray-900/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                        }`}
+                    >
+                      <div className={`w-full h-24 rounded-lg ${mode === 'Light' ? 'bg-gray-200' : 'bg-[#0a0e17]'
+                        } mb-2 relative overflow-hidden group`}>
+                        {/* Mock UI */}
+                        <div className="absolute top-2 left-2 right-2 h-2 rounded-full bg-current opacity-20"></div>
+                        <div className="absolute top-6 left-2 w-1/3 h-2 rounded-full bg-current opacity-20"></div>
+                      </div>
+                      <span className="font-medium">{mode}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-8 border-t border-gray-700/50">
+                <h3 className="text-xl font-bold mb-6">Language & Region</h3>
+                <div className="grid gap-4 max-w-md">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-gray-400">Display Language</label>
+                    <select className="bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                      <option>English (US)</option>
+                      <option>Spanish</option>
+                      <option>French</option>
+                      <option>German</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Account Settings */}
+          {activeTab === 'account' && (
+            <div className="space-y-8 animate-fadeIn">
+              <div className="flex items-center gap-6 pb-8 border-b border-gray-700/50">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-cyan-500/20">
+                  HS
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Harsha Sampangi</h3>
+                  <p className="text-gray-400">admin@authentic.ai</p>
+                  <span className="inline-block mt-2 px-3 py-1 bg-cyan-500/10 text-cyan-400 text-xs font-bold rounded-full border border-cyan-500/20">
+                    PRO PLAN
+                  </span>
+                </div>
+                <button className="ml-auto px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition">
+                  Edit Profile
+                </button>
+              </div>
+
+              <div className="grid gap-6">
+                <div className="p-4 bg-gray-900/50 rounded-xl border border-gray-800">
+                  <div className="text-sm text-gray-400 mb-1">Total Analyses</div>
+                  <div className="text-2xl font-bold">1,248</div>
+                </div>
+
+                <div>
+                  <h4 className="font-bold mb-4">Subscription</h4>
+                  <div className="p-6 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl border border-gray-700 relative overflow-hidden">
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <div className="text-cyan-400 font-bold mb-1">PROFESSIONAL</div>
+                          <div className="text-2xl font-bold">$29<span className="text-sm text-gray-400 font-normal">/mo</span></div>
+                        </div>
+                        <div className="px-3 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">ACTIVE</div>
+                      </div>
+                      <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden mb-2">
+                        <div className="bg-cyan-500 h-full w-[65%]"></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>650 / 1000 credits used</span>
+                        <span>Resets in 12 days</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notification Settings */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6 animate-fadeIn">
+              <h3 className="text-xl font-bold mb-4">Notification Preferences</h3>
+
+              {[
+                { id: 'email', title: 'Email Notifications', desc: 'Receive analysis reports and weekly summaries via email.' },
+                { id: 'push', title: 'Push Notifications', desc: 'Get instant alerts when analysis is complete.' },
+                { id: 'securityAlerts', title: 'Security Alerts', desc: 'Notify me about unusual sign-in attempts.' },
+                { id: 'weeklyReport', title: 'Weekly Digest', desc: 'A summary of all media analyzed during the week.' }
+              ].map(item => (
+                <div key={item.id} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-xl border border-gray-800 transition hover:border-gray-700">
+                  <div>
+                    <div className="font-semibold text-white">{item.title}</div>
+                    <div className="text-sm text-gray-400">{item.desc}</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={notifications[item.id]}
+                      onChange={() => setNotifications(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                    />
+                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Security Settings */}
+          {activeTab === 'security' && (
+            <div className="space-y-8 animate-fadeIn">
+              <div>
+                <h3 className="text-xl font-bold mb-4">API Keys</h3>
+                <div className="p-4 bg-gray-900/50 rounded-xl border border-gray-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-sm text-gray-300">sk_live_....................x8j9</span>
+                    <button className="text-xs text-cyan-400 hover:text-cyan-300">Reveal</button>
+                  </div>
+                  <div className="text-xs text-gray-500">Last used: 2 minutes ago</div>
+                </div>
+                <button className="mt-4 text-sm text-cyan-400 hover:text-cyan-300 font-medium">
+                  + Generate New API Key
+                </button>
+              </div>
+
+              <div className="pt-8 border-t border-gray-700/50">
+                <h3 className="text-xl font-bold mb-4 text-red-400">Danger Zone</h3>
+                <div className="p-4 border border-red-500/20 bg-red-500/5 rounded-xl flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-red-200">Delete Account</div>
+                    <div className="text-sm text-red-200/60">Permanently remove your account and all data.</div>
+                  </div>
+                  <button className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-sm transition">
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  )
+}
